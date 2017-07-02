@@ -262,7 +262,42 @@ int target_panel_clock(uint8_t enable, struct msm_panel_info *pinfo)
 
 	return NO_ERROR;
 }
+/*Gionee xiangzhong 2014-04-10 add for tps65132 begin*/
+#if defined(CONFIG_GN_Q_BSP_LCD_TPS65132_SUPPORT)
+void tps65132_init_positive(void )
+{
+	
+	struct qup_i2c_dev  *dev;
+	char data_buf_0[] = {0x00,0x11}; // 11 for 5.7v
 
+	dev = qup_blsp_i2c_init(BLSP_ID_2, QUP_ID_4, 100000, 19200000);
+	if (!dev) {
+		dprintf(CRITICAL, "Failed initializing I2c\n");
+		return;
+	}
+	struct i2c_msg msg_buf_0[] = {
+		{0x3e, I2C_M_WR, 2, data_buf_0}
+	};
+	qup_i2c_xfer(dev, msg_buf_0, 1);
+}
+void tps65132_init_nagetive(void )
+{
+	
+	struct qup_i2c_dev  *dev;
+	char data_buf_0[] = {0x01,0x11};  // 11 for -5.7v
+
+	dev = qup_blsp_i2c_init(BLSP_ID_2, QUP_ID_4, 100000, 19200000);
+	if (!dev) {
+		dprintf(CRITICAL, "Failed initializing I2c\n");
+		return;
+	}
+	struct i2c_msg msg_buf_0[] = {
+		{0x3e, I2C_M_WR, 2, data_buf_0}
+	};
+	qup_i2c_xfer(dev, msg_buf_0, 1);
+}
+#endif
+/*Gionee xiangzhong 2014-04-10 add for tps65132 end*/
 /* Pull DISP_RST_N high to get panel out of reset */
 int target_panel_reset(uint8_t enable, struct panel_reset_sequence *resetseq,
 					struct msm_panel_info *pinfo)
@@ -275,6 +310,11 @@ int target_panel_reset(uint8_t enable, struct panel_reset_sequence *resetseq,
 		.direction = PM_GPIO_DIR_OUT,
 		.output_buffer = PM_GPIO_OUT_CMOS,
 		.out_strength = PM_GPIO_OUT_DRIVE_MED,
+/*Gionee xiangzhong 2014-04-10 add for modify reset vol to 1.8v begin*/
+#if defined(CONFIG_GN_Q_BSP_LCD_RESET_VOL_1V8_SUPPORT)
+		.vin_sel = 2,  //output = 1.8v
+#endif
+/*Gionee xiangzhong 2014-04-10 add for modify reset vol to 1.8v end*/
 	};
 
 	if (platform_id == MSM8974AC)
@@ -285,6 +325,13 @@ int target_panel_reset(uint8_t enable, struct panel_reset_sequence *resetseq,
 	dprintf(SPEW, "platform_id: %u, rst_gpio: %u\n",
 				platform_id, rst_gpio);
 
+/*Gionee xiangzhong 2014-04-10 add for 65132 begin*/
+#if defined(CONFIG_GN_Q_BSP_LCD_TPS65132_SUPPORT)
+	gpio_tlmm_config(tps_enable_gpio.pin_id, 0,
+			tps_enable_gpio.pin_direction, tps_enable_gpio.pin_pull,
+			tps_enable_gpio.pin_strength, tps_enable_gpio.pin_state);
+#endif
+
 	pm8x41_gpio_config(rst_gpio, &resetgpio_param);
 	if (enable) {
 		gpio_tlmm_config(enable_gpio.pin_id, 0,
@@ -292,10 +339,24 @@ int target_panel_reset(uint8_t enable, struct panel_reset_sequence *resetseq,
 			enable_gpio.pin_strength, enable_gpio.pin_state);
 
 		gpio_set(enable_gpio.pin_id, resetseq->pin_direction);
+/*Gionee xiangzhong 2013-12-20 add for jdi cmd begin*/
+#if defined(CONFIG_GN_Q_BSP_LCD_JDI_R63419_SUPPORT) || defined(CONFIG_GN_Q_BSP_LCD_TRULY_R63419_SUPPORT) \
+		|| defined(CONFIG_GN_Q_BSP_LCD_SHARP_R63419_SUPPORT)
+#else
 		pm8x41_gpio_set(rst_gpio, resetseq->pin_state[0]);
 		mdelay(resetseq->sleep[0]);
 		pm8x41_gpio_set(rst_gpio, resetseq->pin_state[1]);
+#endif
+/*Gionee xiangzhong 2013-12-20 add for jdi cmd end*/
 		mdelay(resetseq->sleep[1]);
+/*Gionee xiangzhong 2014-04-10 add for 65132 begin*/
+#if defined(CONFIG_GN_Q_BSP_LCD_TPS65132_SUPPORT)
+		tps65132_init_positive();
+		mdelay(1);
+		gpio_set(tps_enable_gpio.pin_id, resetseq->pin_direction);
+		tps65132_init_nagetive();
+#endif
+/*Gionee xiangzhong 2014-04-10 add for 65132 end*/
 		pm8x41_gpio_set(rst_gpio, resetseq->pin_state[2]);
 		mdelay(resetseq->sleep[2]);
 	} else {

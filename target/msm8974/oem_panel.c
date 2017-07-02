@@ -49,7 +49,21 @@
 #include "include/panel_jdi_qhd_dualdsi_video.h"
 #include "include/panel_jdi_qhd_dualdsi_cmd.h"
 
+//gionee caomingliang 20140815 add begin
+#include "include/panel_jdi_r63419_wqhd_dualdsi_cmd.h"
+#include "include/panel_sharp_r63419_wqhd_dualdsi_cmd.h"
+#include "include/panel_sharp_r63419_wqhd_dualdsi_video.h"
+#include "include/panel_truly_r63419_wqhd_dualdsi_cmd.h"
+#include "include/panel_truly_r63419_wqhd_dualdsi_video.h"
+#include <platform/gpio.h>
+#include <platform/iomap.h>
+#include <reg.h>
+#define LCD_TYPE_CHECK_GPIO_1	76
+#define LCD_TYPE_CHECK_GPIO_2	77
+int lcd_vendor;
+
 #define DISPLAY_MAX_PANEL_DETECTION 3
+//gionee caomingliang 20140815 add end
 
 /*---------------------------------------------------------------------------*/
 /* static panel selection variable                                           */
@@ -57,6 +71,13 @@
 enum {
 JDI_1080P_VIDEO_PANEL,
 TOSHIBA_720P_VIDEO_PANEL,
+//gionee caomingliang 20140815 add begin
+JDI_R63419_WQHD_DUALDSI_CMD_PANEL,
+SHARP_R63419_WQHD_DUALDSI_CMD_PANEL,
+SHARP_R63419_WQHD_DUALDSI_VIDEO_PANEL,
+TRULY_R63419_WQHD_DUALDSI_CMD_PANEL,
+TRULY_R63419_WQHD_DUALDSI_VIDEO_PANEL,
+//gionee caomingliang 20140815 add end
 SHARP_QHD_VIDEO_PANEL,
 GENERIC_720P_CMD_PANEL,
 JDI_QHD_DUALDSI_VIDEO_PANEL,
@@ -71,6 +92,13 @@ UNKNOWN_PANEL
 static struct panel_list supp_panels[] = {
 	{"jdi_1080p_video", JDI_1080P_VIDEO_PANEL},
 	{"toshiba_720p_video", TOSHIBA_720P_VIDEO_PANEL},
+//gionee abdessamadderraz 20170702 add begin
+	{"jdi_r63419_wqhd_cmd", JDI_R63419_WQHD_DUALDSI_CMD_PANEL},
+	{"sharp_r63419_wqhd_cmd", SHARP_R63419_WQHD_DUALDSI_CMD_PANEL},
+	{"sharp_r63419_wqhd_video", SHARP_R63419_WQHD_DUALDSI_VIDEO_PANEL},
+	{"truly_r63419_wqhd_cmd", TRULY_R63419_WQHD_DUALDSI_CMD_PANEL},
+	{"truly_r63419_wqhd_video", TRULY_R63419_WQHD_DUALDSI_VIDEO_PANEL},
+//gionee abdessamadderraz 20170702 add end
 	{"sharp_qhd_video", SHARP_QHD_VIDEO_PANEL},
 	{"generic_720p_cmd", GENERIC_720P_CMD_PANEL},
 	{"jdi_qhd_dualdsi_video", JDI_QHD_DUALDSI_VIDEO_PANEL},
@@ -79,6 +107,28 @@ static struct panel_list supp_panels[] = {
 
 static uint32_t panel_id;
 
+//gionee caomingliang 20140815 add begin
+void lcd_vendor_check(void )
+{
+	int adc_value_1;
+	int adc_value_2;
+
+	gpio_tlmm_config(LCD_TYPE_CHECK_GPIO_1, 0, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA, GPIO_ENABLE);
+	gpio_tlmm_config(LCD_TYPE_CHECK_GPIO_2, 0, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA, GPIO_ENABLE);
+	adc_value_1 = readl((unsigned int *)GPIO_IN_OUT_ADDR(LCD_TYPE_CHECK_GPIO_1));
+	adc_value_2 = readl((unsigned int *)GPIO_IN_OUT_ADDR(LCD_TYPE_CHECK_GPIO_2));
+	dprintf(INFO,"adc_value_1 = %d adc_value_2 = %d\n",adc_value_1, adc_value_2);
+
+	if((adc_value_1 == 0) && (adc_value_2 == 0))
+		lcd_vendor = 0; //for sharp lcd
+	else if((adc_value_1 == 0) && (adc_value_2 == 1))
+		lcd_vendor = 1; //for truly lcd
+	else if ((adc_value_1 == 1) && (adc_value_2 == 1))
+		lcd_vendor = 2; //for  lcd
+	else
+		dprintf(INFO,"not found right lcd\n");
+}
+//gionee caomingliang 20140815 add end
 int oem_panel_rotation()
 {
 	/* OEM can keep there panel spefic on instructions in this
@@ -157,6 +207,133 @@ static int init_panel_data(struct panel_struct *panelstruct,
 		memcpy(phy_db->timing,
 				sharp_qhd_video_timings, TIMING_SIZE);
 		break;
+//gionee caomingliang 20140815 add begin
+	case JDI_R63419_WQHD_DUALDSI_CMD_PANEL:
+		panelstruct->paneldata    = &jdi_r63419_wqhd_cmd_panel_data;
+		panelstruct->panelres     = &jdi_r63419_wqhd_cmd_panel_res;
+		panelstruct->color        = &jdi_r63419_wqhd_cmd_color;
+		panelstruct->videopanel   = &jdi_r63419_wqhd_cmd_video_panel;
+		panelstruct->commandpanel = &jdi_r63419_wqhd_cmd_command_panel;
+		panelstruct->state        = &jdi_r63419_wqhd_cmd_state;
+		panelstruct->laneconfig   = &jdi_r63419_wqhd_cmd_lane_config;
+		panelstruct->paneltiminginfo
+			= &jdi_r63419_wqhd_cmd_timing_info;
+		panelstruct->panelresetseq
+					 = &jdi_r63419_wqhd_cmd_reset_seq;
+		panelstruct->backlightinfo = &jdi_r63419_wqhd_cmd_backlight;
+		pinfo->mipi.panel_on_cmds
+			= jdi_r63419_wqhd_cmd_on_command;
+		pinfo->mipi.num_of_panel_on_cmds
+			= JDI_R63419_WQHD_DUALDSI_CMD_ON_COMMAND;
+		pinfo->mipi.panel_off_cmds
+			= jdi_r63419_wqhd_cmd_off_command;
+		pinfo->mipi.num_of_panel_off_cmds
+			= JDI_R63419_WQHD_DUALDSI_CMD_COMMAND;
+		memcpy(phy_db->timing,
+			jdi_r63419_wqhd_cmd_timings, TIMING_SIZE);
+		pinfo->mipi.signature = JDI_R63419_WQHD_DUALDSI_CMD_SIGNATURE;
+		break;
+	case SHARP_R63419_WQHD_DUALDSI_CMD_PANEL:
+		panelstruct->paneldata    = &sharp_r63419_wqhd_cmd_panel_data;
+		panelstruct->panelres     = &sharp_r63419_wqhd_cmd_panel_res;
+		panelstruct->color        = &sharp_r63419_wqhd_cmd_color;
+		panelstruct->videopanel   = &sharp_r63419_wqhd_cmd_video_panel;
+		panelstruct->commandpanel = &sharp_r63419_wqhd_cmd_command_panel;
+		panelstruct->state        = &sharp_r63419_wqhd_cmd_state;
+		panelstruct->laneconfig   = &sharp_r63419_wqhd_cmd_lane_config;
+		panelstruct->paneltiminginfo
+			= &sharp_r63419_wqhd_cmd_timing_info;
+		panelstruct->panelresetseq
+					 = &sharp_r63419_wqhd_cmd_panel_reset_seq;
+		panelstruct->backlightinfo = &sharp_r63419_wqhd_cmd_backlight;
+		pinfo->mipi.panel_on_cmds
+			= sharp_r63419_wqhd_cmd_on_command;
+		pinfo->mipi.num_of_panel_on_cmds
+			= SHARP_R63419_WQHD_DUALDSI_CMD_COMMAND;
+		pinfo->mipi.panel_off_cmds
+			= sharp_r63419_wqhd_cmd_off_command;
+		pinfo->mipi.num_of_panel_off_cmds
+			= SHARP_R63419_WQHD_DUALDSI_CMD_COMMAND;
+		memcpy(phy_db->timing,
+			sharp_r63419_wqhd_cmd_timings, TIMING_SIZE);
+		pinfo->mipi.signature = SHARP_R63419_WQHD_DUALDSI_CMD_SIGNATURE;
+		break;
+	case SHARP_R63419_WQHD_DUALDSI_VIDEO_PANEL:
+		panelstruct->paneldata    = &sharp_r63419_wqhd_video_panel_data;
+		panelstruct->panelres     = &sharp_r63419_wqhd_video_panel_res;
+		panelstruct->color        = &sharp_r63419_wqhd_video_color;
+		panelstruct->videopanel   = &sharp_r63419_wqhd_video_video_panel;
+		panelstruct->commandpanel = &sharp_r63419_wqhd_video_command_panel;
+		panelstruct->state        = &sharp_r63419_wqhd_video_state;
+		panelstruct->laneconfig   = &sharp_r63419_wqhd_video_lane_config;
+		panelstruct->paneltiminginfo
+			= &sharp_r63419_wqhd_video_timing_info;
+		panelstruct->panelresetseq
+					 = &sharp_r63419_wqhd_video_panel_reset_seq;
+		panelstruct->backlightinfo = &sharp_r63419_wqhd_video_backlight;
+		pinfo->mipi.panel_on_cmds
+			= sharp_r63419_wqhd_video_on_command;
+		pinfo->mipi.num_of_panel_on_cmds
+			= SHARP_R63419_WQHD_DUALDSI_VIDEO_ON_COMMAND;
+		pinfo->mipi.panel_off_cmds
+			= sharp_r63419_wqhd_video_off_command;
+		pinfo->mipi.num_of_panel_off_cmds
+			= SHARP_R63419_WQHD_DUALDSI_VIDEO_OFF_COMMAND;
+		memcpy(phy_db->timing,
+			sharp_r63419_wqhd_video_timings, TIMING_SIZE);
+		pinfo->mipi.signature = SHARP_R63419_WQHD_DUALDSI_VIDEO_SIGNATURE;
+		break;
+	case TRULY_R63419_WQHD_DUALDSI_CMD:
+		panelstruct->paneldata    = &truly_r63419_wqhd_cmd_panel_data;
+		panelstruct->panelres     = &truly_r63419_wqhd_cmd_panel_res;
+		panelstruct->color        = &truly_r63419_wqhd_cmd_color;
+		panelstruct->videopanel   = &truly_r63419_wqhd_cmd_video_panel;
+		panelstruct->commandpanel = &truly_r63419_wqhd_cmd_command_panel;
+		panelstruct->state        = &truly_r63419_wqhd_cmd_state;
+		panelstruct->laneconfig   = &truly_r63419_wqhd_cmd_lane_config;
+		panelstruct->paneltiminginfo
+			= &truly_r63419_wqhd_cmd_timing_info;
+		panelstruct->panelresetseq
+					 = &truly_r63419_wqhd_cmd_reset_seq;
+		panelstruct->backlightinfo = &truly_r63419_wqhd_cmd_backlight;
+		pinfo->mipi.panel_on_cmds
+			= truly_r63419_wqhd_cmd_on_command;
+		pinfo->mipi.num_of_panel_on_cmds
+			= TRULY_R63419_WQHD_DUALDSI_CMD_ON_COMMAND;
+		pinfo->mipi.panel_off_cmds
+			= truly_r63419_wqhd_cmd_off_command;
+		pinfo->mipi.num_of_panel_off_cmds
+			= TRULY_R63419_WQHD_DUALDSI_CMD_OFF_COMMAND;
+		memcpy(phy_db->timing,
+			truly_r63419_wqhd_cmd_timings, TIMING_SIZE);
+		pinfo->mipi.signature = TRULY_R63419_WQHD_DUALDSI_CMD_SIGNATURE;
+		break;
+	case TRULY_R63419_WQHD_DUALDSI_VIDEO:
+		panelstruct->paneldata    = &truly_r63419_wqhd_video_panel_data;
+		panelstruct->panelres     = &truly_r63419_wqhd_video_panel_res;
+		panelstruct->color        = &truly_r63419_wqhd_video_color;
+		panelstruct->videopanel   = &truly_r63419_wqhd_video_video_panel;
+		panelstruct->commandpanel = &truly_r63419_wqhd_video_command_panel;
+		panelstruct->state        = &truly_r63419_wqhd_video_state;
+		panelstruct->laneconfig   = &truly_r63419_wqhd_video_lane_config;
+		panelstruct->paneltiminginfo
+			= &truly_r63419_wqhd_video_timing_info;
+		panelstruct->panelresetseq
+					 = &truly_r63419_wqhd_video_panel_reset_seq;
+		panelstruct->backlightinfo = &truly_r63419_wqhd_video_backlight;
+		pinfo->mipi.panel_on_cmds
+			= truly_r63419_wqhd_video_on_command;
+		pinfo->mipi.num_of_panel_on_cmds
+			= TRULY_R63419_WQHD_DUALDSI_VIDEO_ON_COMMAND;
+		pinfo->mipi.panel_off_cmds
+			= truly_r63419_wqhd_video_off_command;
+		pinfo->mipi.num_of_panel_off_cmds
+			= TRULY_R63419_WQHD_DUALDSI_VIDEO_OFF_COMMAND;
+		memcpy(phy_db->timing,
+			truly_r63419_wqhd_video_timings, TIMING_SIZE);
+		pinfo->mipi.signature = TRULY_R63419_WQHD_DUALDSI_VIDEO_SIGNATURE;
+		break;
+//gionee caomingliang 20140815 add end
 	case JDI_1080P_VIDEO_PANEL:
 		panelstruct->paneldata    = &jdi_1080p_video_panel_data;
 		panelstruct->panelres     = &jdi_1080p_video_panel_res;
@@ -278,7 +455,7 @@ uint32_t oem_panel_max_auto_detect_panels()
 			DISPLAY_MAX_PANEL_DETECTION : 0;
 }
 
-static uint32_t auto_pan_loop = 0;
+static uint32_t auto_pan_loop = 1;
 
 int oem_panel_select(const char *panel_name, struct panel_struct *panelstruct,
 			struct msm_panel_info *pinfo,
@@ -287,6 +464,9 @@ int oem_panel_select(const char *panel_name, struct panel_struct *panelstruct,
 	uint32_t hw_id = board_hardware_id();
 	int32_t panel_override_id;
 
+//gionee caomingliang 20140815 add begin
+	lcd_vendor_check();
+//gionee caomingliang 20140815 add end
 	if (panel_name) {
 		panel_override_id = panel_name_to_id(supp_panels,
 				ARRAY_SIZE(supp_panels), panel_name);
@@ -313,10 +493,42 @@ int oem_panel_select(const char *panel_name, struct panel_struct *panelstruct,
 			panel_id = JDI_1080P_VIDEO_PANEL;
 			break;
 		case 1:
-			panel_id = TOSHIBA_720P_VIDEO_PANEL;
+//gionee caomingliang 20140815 add begin
+			if (lcd_vendor == 0)  //for jdi lcd
+			{
+				dprintf(INFO, "LCD PANEL IS JDI CMD\n");
+				panel_id = JDI_R63419_WQHD_DUALDSI_CMD_PANEL;
+			}
+			else if(lcd_vendor == 1)
+			{
+				dprintf(INFO, "LCD PANEL IS SHARP CMD\n");
+				panel_id = SHARP_R63419_WQHD_DUALDSI_CMD_PANEL;
+			}
+			else if(lcd_vendor == 2)
+			{
+				dprintf(INFO, "LCD PANEL IS TRULY CMD\n");
+				panel_id = TRULY_R63419_WQHD_DUALDSI_CMD_PANEL;
+			}
+//gionee caomingliang 20140815 add end
 			break;
 		case 2:
-			panel_id = GENERIC_720P_CMD_PANEL;
+//gionee caomingliang 20140815 add begin
+			if (lcd_vendor == 0)  //for jdi lcd
+			{
+				dprintf(INFO, "LCD PANEL IS JDI CMD\n");
+				panel_id = JDI_R63419_WQHD_DUALDSI_CMD_PANEL;
+			}
+			else if(lcd_vendor == 1)
+			{
+				dprintf(INFO, "LCD PANEL IS SHARP VIDEO\n");
+				panel_id = SHARP_R63419_WQHD_DUALDSI_VIDEO_PANEL;
+			}
+			else if(lcd_vendor == 2)
+			{
+				dprintf(INFO, "LCD PANEL IS TRULY VIDEO\n");
+				panel_id = TRULY_R63419_WQHD_DUALDSI_VIDEO_PANEL;
+			}
+//gionee caomingliang 20140815 add end
 			break;
 		default:
 			panel_id = UNKNOWN_PANEL;
